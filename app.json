@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Let's Rendez",
+    "slug": "letsrendez",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#356769"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.letsrendez"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "app.letsrendez"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

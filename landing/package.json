@@ -1,0 +1,7 @@
+{
+  "name": "letsrendez-holding",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Holding page – no build step'"
+  }
+}

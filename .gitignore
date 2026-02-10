@@ -1,0 +1,34 @@
+node_modules/
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+functions/.env
+
+# IDE
+.vscode/
+.idea/
+
+# Cursor agents, rules, and subagent docs (local only)
+.cursor/
+
+# Project docs (business, API, branding – keep local)
+docs/
+
+# Local/setup docs (agents, setup – keep local)
+AGENTS.md
+SETUP.md
