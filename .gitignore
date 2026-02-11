@@ -32,3 +32,6 @@ docs/
 # Local/setup docs (agents, setup – keep local)
 AGENTS.md
 SETUP.md
+
+# Temporary commit message file
+.commitmsg
