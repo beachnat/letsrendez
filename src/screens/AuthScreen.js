@@ -30,7 +30,7 @@ export default function AuthScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('../../assets/logos/clearLogo.png')}
+          source={require('../../assets/logos/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
