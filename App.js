@@ -16,6 +16,8 @@ import TripEditScreen from './src/screens/TripEditScreen';
 import DestinationIdeasScreen from './src/screens/DestinationIdeasScreen';
 import ResultsScreen from './src/screens/ResultsScreen';
 import AcceptInviteScreen from './src/screens/AcceptInviteScreen';
+import AccommodationDiscoveryScreen from './src/screens/AccommodationDiscoveryScreen';
+import ComingSoonScreen from './src/screens/ComingSoonScreen';
 
 const Stack = createStackNavigator();
 
@@ -108,6 +110,11 @@ export default function App() {
                 component={DashboardScreen}
                 options={{ title: "My Trips" }}
               />
+              <Stack.Screen
+                name="AccommodationDiscovery"
+                component={AccommodationDiscoveryScreen}
+                options={{ title: "Find a place to stay" }}
+              />
               <Stack.Screen 
                 name="TripEdit" 
                 component={TripEditScreen}
@@ -137,6 +144,11 @@ export default function App() {
                 name="Landing" 
                 component={LandingScreen}
                 options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="ComingSoon" 
+                component={ComingSoonScreen}
+                options={{ title: 'Coming soon', headerShown: true }}
               />
               <Stack.Screen 
                 name="Auth" 

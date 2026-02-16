@@ -40,6 +40,11 @@ npm run ios
 npm run android
 ```
 
+## Vercel vs local
+
+- **Local:** Run `npm start` or `npm run web` — you get the **full app** (landing with Get started / Sign in, login, trip creation, etc.) so you can test everything.
+- **Vercel:** To show the **Coming Soon** page to the public, set the project’s **Root Directory** to **`landing`** in Vercel → Settings → General, then redeploy. Your live URL will then serve only the coming soon page. To show the full app on Vercel again, clear Root Directory and redeploy. Details: [landing/README.md](landing/README.md).
+
 ## Project Structure
 
 ```

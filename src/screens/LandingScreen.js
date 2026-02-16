@@ -52,6 +52,14 @@ export default function LandingScreen({ navigation }) {
         >
           <Text style={styles.signInLinkText}>Already have an account? Sign in</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.comingSoonLink}
+          onPress={() => navigation.navigate('ComingSoon')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.comingSoonLinkText}>Preview coming soon page</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -166,6 +174,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#356769',
+    letterSpacing: 0.2,
+  },
+  comingSoonLink: {
+    marginTop: 32,
+    padding: 10,
+    ...Platform.select({ web: { cursor: 'pointer' } }),
+  },
+  comingSoonLinkText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#afae8f',
     letterSpacing: 0.2,
   },
 });

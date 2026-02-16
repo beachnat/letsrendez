@@ -50,6 +50,98 @@ function getOpenAICredentials() {
   };
 }
 
+/** Kayak affiliate ID for outbound flight links (param "a"). Set in config or KAYAK_AFFILIATE_ID in .env. */
+function getKayakAffiliateId() {
+  const config = functions.config().kayak || {};
+  return config.affiliate_id || process.env.KAYAK_AFFILIATE_ID || '';
+}
+
+/** Kayak sandbox API key for Flights Search API calls. Set KAYAK_SANDBOX_API_KEY in .env or kayak.sandbox_api_key in config. */
+function getKayakSandboxApiKey() {
+  const config = functions.config().kayak || {};
+  return config.sandbox_api_key || process.env.KAYAK_SANDBOX_API_KEY || '';
+}
+
+/** Base URL for Kayak API (sandbox or production). Set KAYAK_API_BASE_URL if different from your Kayak developer docs. */
+function getKayakApiBaseUrl() {
+  return process.env.KAYAK_API_BASE_URL || 'https://api.kayak.com';
+}
+
+/**
+ * Call KAYAK Flights Search API (https://developers.kayak.com/flights-search-api).
+ * When the API returns a different shape, adjust parsing here to match the docs.
+ * @returns {Promise<Array<{ id, price, currency, departure, arrival, departureTime, arrivalTime, duration?, carrierCode?, airlineName?, searchUrl }>>}
+ */
+async function fetchKayakFlights(origin, destination, dep, ret, adultsCount, searchUrl) {
+  const apiKey = getKayakSandboxApiKey();
+  if (!apiKey) return [];
+
+  const baseUrl = getKayakApiBaseUrl().replace(/\/$/, '');
+  const path = process.env.KAYAK_FLIGHTS_PATH || '/v1/flights/search';
+
+  try {
+    const body = {
+      originLocationCode: origin,
+      destinationLocationCode: destination,
+      departureDate: dep,
+      adults: adultsCount,
+      ...(ret && { returnDate: ret }),
+    };
+
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn('Kayak Flights API error:', res.status, errText);
+      return [];
+    }
+
+    const data = await res.json();
+
+    // Normalize: support data.data (Amadeus-style), data.results, data.flights, or data.offers
+    const rawOffers = data.data ?? data.results ?? data.flights ?? data.offers ?? [];
+    if (!Array.isArray(rawOffers)) return [];
+
+    return rawOffers.map((offer, index) => {
+      const price = offer.price?.total ?? offer.totalPrice ?? offer.price ?? offer.amount;
+      const seg = offer.itineraries?.[0]?.segments?.[0] ?? offer.segments?.[0] ?? offer.outbound?.[0];
+      const lastSeg = offer.itineraries?.[0]?.segments?.slice(-1)[0] ?? offer.segments?.slice(-1)[0] ?? offer.outbound?.slice(-1)[0];
+      const depIata = seg?.departure?.iataCode ?? seg?.origin ?? offer.origin;
+      const arrIata = lastSeg?.arrival?.iataCode ?? lastSeg?.destination ?? offer.destination;
+      const depAt = seg?.departure?.at ?? seg?.departureTime ?? offer.departureTime;
+      const arrAt = lastSeg?.arrival?.at ?? lastSeg?.arrivalTime ?? offer.arrivalTime;
+      const carrierCode = seg?.carrierCode ?? offer.carrier ?? offer.airline;
+      const airlineName = carrierCode ? AIRLINE_NAMES[carrierCode] || null : null;
+
+      return {
+        id: offer.id ?? `kayak-${index}-${Date.now()}`,
+        price: String(price ?? '0'),
+        currency: offer.price?.currency ?? offer.currency ?? 'USD',
+        departure: depIata ?? origin,
+        arrival: arrIata ?? destination,
+        departureTime: depAt ?? null,
+        arrivalTime: arrAt ?? null,
+        duration: offer.itineraries?.[0]?.duration ?? offer.duration ?? null,
+        numberOfBookableSeats: offer.numberOfBookableSeats ?? null,
+        carrierCode: carrierCode ?? null,
+        airlineName,
+        searchUrl,
+        source: 'kayak',
+      };
+    });
+  } catch (err) {
+    console.warn('Kayak Flights API fetch failed:', err.message);
+    return [];
+  }
+}
+
 async function getAmadeusToken(baseUrl, clientId, clientSecret) {
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
@@ -159,8 +251,8 @@ exports.searchAirportCities = functions.https.onCall(async (data, context) => {
  * Each flight in flights[] has:
  *   id, price, currency, departure (IATA), arrival (IATA),
  *   departureTime, arrivalTime (ISO), duration (PTnHnM),
- *   numberOfBookableSeats, carrierCode, airlineName, searchUrl (Kayak link for this search).
- * There are no per-flight booking URLs from Amadeus; searchUrl is one Kayak link for the whole search.
+ *   numberOfBookableSeats, carrierCode, airlineName, searchUrl, source? ('amadeus'|'kayak').
+ * When KAYAK_SANDBOX_API_KEY is set, results are merged from Amadeus + KAYAK Flights Search API (https://developers.kayak.com/flights-search-api).
  */
 exports.searchFlights = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -225,12 +317,16 @@ exports.searchFlights = functions.https.onCall(async (data, context) => {
 
     const offers = searchData.data || [];
 
-    const searchUrl =
+    const kayakBase =
       `https://www.kayak.com/flights/${origin}-${destination}/${dep}` +
       (ret ? `-${ret}` : '') +
       `/${adultsCount}adults`;
+    const kayakAffiliateId = getKayakAffiliateId();
+    const searchUrl = kayakAffiliateId
+      ? `${kayakBase}?a=${encodeURIComponent(kayakAffiliateId)}`
+      : kayakBase;
 
-    const flights = offers.map((offer) => {
+    const amadeusFlights = offers.map((offer) => {
       const seg = offer.itineraries?.[0]?.segments?.[0];
       const lastSeg = offer.itineraries?.[0]?.segments?.[offer.itineraries[0].segments.length - 1];
       const carrierCode = seg?.carrierCode || offer.itineraries?.[0]?.segments?.[0]?.carrierCode;
@@ -248,8 +344,19 @@ exports.searchFlights = functions.https.onCall(async (data, context) => {
         carrierCode: carrierCode || null,
         airlineName: airlineName || null,
         searchUrl,
+        source: 'amadeus',
       };
     });
+
+    // Optional: call KAYAK Flights Search API when KAYAK_SANDBOX_API_KEY is set (https://developers.kayak.com/flights-search-api)
+    let kayakFlights = [];
+    if (getKayakSandboxApiKey()) {
+      kayakFlights = await fetchKayakFlights(origin, destination, dep, ret, adultsCount, searchUrl);
+    }
+
+    const flights = [...amadeusFlights, ...kayakFlights]
+      .sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0))
+      .slice(0, 20);
 
     return { flights, searchUrl };
   } catch (err) {
